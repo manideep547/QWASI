@@ -1,0 +1,85 @@
+version: "3"
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: app
+    container_name: app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./../../velux/veluxlegacy/:/var/www/veluxlegacy
+      - ./../../velux/memberportal/:/var/www/memberportal
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      laravel:
+        aliases:
+          - veluxlegacy.test
+          - memberportal.test
+    depends_on:
+      - redis
+    environment:
+      #DB_PORT: 3306
+      #DB_HOST: mysql
+      #XDEBUG_CONFIG: "remote_host=192.168.1.44"  #real host ip
+      XDEBUG_CONFIG: "remote_host=host.docker.internal"  #real host ip
+      PHP_IDE_CONFIG: "serverName=memberportal.test" #same name in phpstorm
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./../../velux/veluxlegacy/:/var/www/veluxlegacy
+      - ./../../velux/memberportal/:/var/www/memberportal
+      - ./nginx/conf.d:/etc/nginx/conf.d/
+      - ./certs:/etc/nginx/certs
+    networks:
+      laravel:
+        aliases:
+          - veluxlegacy.test
+          - memberportal.test
+  db:
+    image: mysql:5.7
+    container_name: db
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: veluxapi
+      MYSQL_ROOT_PASSWORD: Laravel.1234
+      MYSQL_PASSWORD: 123456.Abc
+      MYSQL_USER: laravel
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - velux:/var/lib/mysql/
+      - ./provision/mysql:/docker-entrypoint-initdb.d
+    networks:
+      laravel:
+        aliases:
+          - veluxlegacy.test
+          - memberportal.test
+  redis:
+    image: redis:5.0.0-alpine
+    restart: always
+    container_name: redis
+    ports:
+      - 6379:6379
+    networks:
+      laravel:
+        aliases:
+          - veluxlegacy.test
+          - memberportal.test
+networks:
+  laravel:
+    driver: bridge
+
+volumes:
+  velux:
+    driver: local
+  portainer_data:
